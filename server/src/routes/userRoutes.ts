@@ -28,14 +28,22 @@ import {
 } from '../controllers/accountController';
 import { authenticate } from '../middleware/auth';
 import { upload } from '../middleware/upload';
+import { CacheMiddleware } from '../middleware/cache';
 
 const router = Router();
 
 router.use(authenticate);
 
-router.get('/me', getCurrentUser);
-router.get('/search', searchUsers);
-router.get('/contacts', getContacts);
+// Cache user profile lookups (short TTL since status changes frequently)
+router.get('/:userId', CacheMiddleware.cache({ ttl: 60, keyPrefix: 'user' }), getUserById);
+
+// Cache current user with shorter TTL
+router.get('/me', CacheMiddleware.cache({ ttl: 30, keyPrefix: 'currentUser' }), getCurrentUser);
+
+// Search doesn't need caching (already limited to 20 results)
+// Contacts can be cached for a bit longer
+router.get('/contacts', CacheMiddleware.cache({ ttl: 120, keyPrefix: 'contacts' }), getContacts);
+
 router.post('/contacts', addContact);
 router.delete('/contacts/:contactId', removeContact);
 router.get('/privacy', getPrivacySettings);
@@ -56,6 +64,9 @@ router.post('/storage/clear-cache', clearCache);
 router.get('/export', exportData);
 router.post('/import', importData);
 
-router.get('/:userId', getUserById);
+// Export for cache invalidation
+export const invalidateUserCache = async (userId: string) => {
+  await CacheMiddleware.invalidate(`user:*${userId}*`);
+};
 
 export default router;

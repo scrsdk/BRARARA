@@ -107,140 +107,145 @@ export const createChat = async (req: AuthRequest, res: Response) => {
 export const getChats = async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
-    console.log('Getting chats for user:', userId);
+    const { limit = 50, offset = 0 } = req.query;
+    const normalizedLimit = Math.min(Math.max(Number(limit) || 50, 1), 100);
+    const normalizedOffset = Math.max(Number(offset) || 0, 0);
 
-    // Сначала проверяем, что пользователь существует
+    // Verify user exists
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true },
     });
 
     if (!user) {
-      console.error('User not found:', userId);
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Получаем чаты - сначала упрощенный запрос для диагностики
-    let chats;
-    try {
-      chats = await prisma.chat.findMany({
-        where: {
-          members: {
-            some: { userId },
-          },
+    // Get total count for pagination
+    const totalCount = await prisma.chat.count({
+      where: {
+        members: {
+          some: { userId },
         },
-        include: {
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  displayName: true,
-                  avatar: true,
-                  status: true,
-                  lastSeen: true,
-                },
-              },
-            },
-          },
-          messages: {
-            take: 1,
-            orderBy: { createdAt: 'desc' },
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  username: true,
-                  displayName: true,
-                },
-              },
-            },
-          },
-          pinnedMessage: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  username: true,
-                  displayName: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      });
-    } catch (dbError) {
-      console.error('Database query error:', dbError);
-      // Попробуем упрощенный запрос без messages
-      chats = await prisma.chat.findMany({
-        where: {
-          members: {
-            some: { userId },
-          },
-        },
-        include: {
-          members: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  username: true,
-                  displayName: true,
-                  avatar: true,
-                  status: true,
-                  lastSeen: true,
-                },
-              },
-            },
-          },
-          pinnedMessage: {
-            include: {
-              sender: {
-                select: {
-                  id: true,
-                  username: true,
-                  displayName: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-        orderBy: { updatedAt: 'desc' },
-      });
-      // Добавляем пустой массив messages для каждого чата
-      chats = chats.map((chat: any) => ({
-        ...chat,
-        messages: [],
-      }));
-    }
+      },
+    });
 
-    console.log(`Found ${chats.length} chats for user ${userId}`);
-    res.json(chats);
+    // Get paginated chats with optimized query - use select instead of include for members
+    // to avoid N+1, then fetch members separately
+    const chats = await prisma.chat.findMany({
+      where: {
+        members: {
+          some: { userId },
+        },
+      },
+      select: {
+        id: true,
+        name: true,
+        type: true,
+        avatar: true,
+        description: true,
+        isSecret: true,
+        pinnedMessageId: true,
+        createdAt: true,
+        updatedAt: true,
+        members: {
+          select: {
+            id: true,
+            userId: true,
+            role: true,
+            user: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatar: true,
+                status: true,
+                lastSeen: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: normalizedLimit,
+      skip: normalizedOffset,
+    });
+
+    // Fetch last message for each chat in a single query to avoid N+1
+    const chatIds = chats.map(c => c.id);
+    const lastMessages = await prisma.message.findMany({
+      where: {
+        chatId: { in: chatIds },
+        isDeleted: false,
+      },
+      orderBy: { createdAt: 'desc' },
+      distinct: ['chatId'],
+      select: {
+        id: true,
+        chatId: true,
+        content: true,
+        type: true,
+        createdAt: true,
+        sender: {
+          select: {
+            id: true,
+            username: true,
+            displayName: true,
+            avatar: true,
+          },
+        },
+      },
+    });
+
+    // Create a map for quick lookup
+    const lastMessageMap = new Map(lastMessages.map(m => [m.chatId, m]));
+
+    // Fetch pinned messages if any
+    const pinnedMessageIds = chats
+      .map(c => c.pinnedMessageId)
+      .filter((id): id is string => id !== null);
+    
+    const pinnedMessages = pinnedMessageIds.length > 0
+      ? await prisma.message.findMany({
+          where: { id: { in: pinnedMessageIds } },
+          select: {
+            id: true,
+            chatId: true,
+            content: true,
+            sender: {
+              select: {
+                id: true,
+                username: true,
+                displayName: true,
+                avatar: true,
+              },
+            },
+          },
+        })
+      : [];
+    
+    const pinnedMessageMap = new Map(pinnedMessages.map(m => [m.id, m]));
+
+    // Combine data
+    const enrichedChats = chats.map(chat => ({
+      ...chat,
+      messages: lastMessageMap.has(chat.id) ? [lastMessageMap.get(chat.id)] : [],
+      pinnedMessage: chat.pinnedMessageId && pinnedMessageMap.has(chat.pinnedMessageId)
+        ? pinnedMessageMap.get(chat.pinnedMessageId)
+        : null,
+    }));
+
+    res.json({
+      chats: enrichedChats,
+      pagination: {
+        total: totalCount,
+        limit: normalizedLimit,
+        offset: normalizedOffset,
+        hasMore: normalizedOffset + chats.length < totalCount,
+      },
+    });
   } catch (error) {
     console.error('Get chats error:', error);
-    if (error instanceof Error) {
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      
-      // Логируем в файл
-      try {
-        const fs = require('fs');
-        const path = require('path');
-        const logDir = path.join(__dirname, '../../logs');
-        if (!fs.existsSync(logDir)) {
-          fs.mkdirSync(logDir, { recursive: true });
-        }
-        const logMessage = `[${new Date().toISOString()}] Get chats error: ${error.message}\n${error.stack}\n\n`;
-        fs.appendFileSync(path.join(logDir, 'error.log'), logMessage);
-      } catch (logError) {
-        console.error('Failed to write to log file:', logError);
-      }
-    }
-    
     res.status(500).json({ 
       error: 'Failed to fetch chats',
       message: error instanceof Error ? error.message : 'Unknown error'
