@@ -1,10 +1,11 @@
-import { ArrowLeft, Phone, PinOff, Search, Settings, Video } from 'lucide-react';
+import { ArrowLeft, Phone, PinOff, Search, Settings, Video, Users } from 'lucide-react';
 
 interface ChatWindowHeaderProps {
   chatName: string;
   chatAvatar: string | null;
   chatSubtitle: string;
   canStartCall: boolean;
+  canStartGroupCall?: boolean;
   hasPinnedMessage: boolean;
   onBack?: () => void;
   onOpenProfile: () => void;
@@ -12,6 +13,7 @@ interface ChatWindowHeaderProps {
   onOpenSearch: () => void;
   onStartAudioCall: () => void;
   onStartVideoCall: () => void;
+  onStartGroupCall?: () => void;
   onOpenSettings: () => void;
   getInitials: (value: string) => string;
 }
@@ -21,6 +23,7 @@ export function ChatWindowHeader({
   chatAvatar,
   chatSubtitle,
   canStartCall,
+  canStartGroupCall = false,
   hasPinnedMessage,
   onBack,
   onOpenProfile,
@@ -28,6 +31,7 @@ export function ChatWindowHeader({
   onOpenSearch,
   onStartAudioCall,
   onStartVideoCall,
+  onStartGroupCall,
   onOpenSettings,
   getInitials,
 }: ChatWindowHeaderProps) {
@@ -80,22 +84,37 @@ export function ChatWindowHeader({
           >
             <Search className="h-5 w-5 text-white" />
           </button>
-          <button
-            onClick={onStartAudioCall}
-            disabled={!canStartCall}
-            className="rounded-full p-2 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Аудиозвонок"
-          >
-            <Phone className="h-5 w-5 text-white" />
-          </button>
-          <button
-            onClick={onStartVideoCall}
-            disabled={!canStartCall}
-            className="rounded-full p-2 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-40"
-            title="Видеозвонок"
-          >
-            <Video className="h-5 w-5 text-white" />
-          </button>
+          
+          {/* Group call button - only shown for group chats */}
+          {canStartGroupCall && onStartGroupCall && (
+            <button
+              onClick={onStartGroupCall}
+              className="rounded-full p-2 transition hover:bg-white/10"
+              title="Начать групповой звонок"
+            >
+              <Users className="h-5 w-5 text-white" />
+            </button>
+          )}
+          
+          {/* Regular call buttons - only for private chats */}
+          {canStartCall && (
+            <>
+              <button
+                onClick={onStartAudioCall}
+                className="rounded-full p-2 transition hover:bg-white/10"
+                title="Аудиозвонок"
+              >
+                <Phone className="h-5 w-5 text-white" />
+              </button>
+              <button
+                onClick={onStartVideoCall}
+                className="rounded-full p-2 transition hover:bg-white/10"
+                title="Видеозвонок"
+              >
+                <Video className="h-5 w-5 text-white" />
+              </button>
+            </>
+          )}
           <button
             onClick={onOpenSettings}
             className="rounded-full p-2 transition hover:bg-white/10"

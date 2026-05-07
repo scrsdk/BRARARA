@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { messageApi } from '../services/api';
 import { socketService } from '../services/socket';
@@ -25,6 +25,7 @@ const MessageSearch = lazy(() => import('./MessageSearch'));
 const VoiceRecorder = lazy(() => import('./VoiceRecorder'));
 const ChatSettingsDrawer = lazy(() => import('./ChatSettingsDrawer'));
 const ChatProfileDrawer = lazy(() => import('./ChatProfileDrawer'));
+const GroupCallModal = lazy(() => import('./GroupCallModal'));
 
 interface ChatWindowProps {
   chatId: string;
@@ -81,6 +82,10 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     selectChat,
   });
 
+  // Group call state
+  const [showGroupCallModal, setShowGroupCallModal] = useState(false);
+  const [groupCallId, setGroupCallId] = useState<string | null>(null);
+
   const handleStartCall = (type: 'AUDIO' | 'VIDEO') => {
     if (currentChat?.type !== ChatType.PRIVATE) {
       toast.error('Звонки сейчас доступны только в личных чатах');
@@ -90,6 +95,41 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     setCallType(type);
     setIsInitiator(true);
     socketService.initiateCall(chatId, type);
+  };
+
+  const handleStartGroupCall = (type: 'AUDIO' | 'VIDEO') => {
+    if (currentChat?.type === ChatType.PRIVATE) {
+      // For private chats, use regular calls
+      handleStartCall(type);
+      return;
+    }
+
+    setCallType(type);
+    setIsInitiator(true);
+    socketService.initiateGroupCall(chatId, type);
+
+    // Listen for group call initiated confirmation
+    const handleGroupCallInitiated = ({ callId }: { callId: string }) => {
+      setGroupCallId(callId);
+      setShowGroupCallModal(true);
+      socketService.offGroupCallInitiated(handleGroupCallInitiated);
+    };
+
+    socketService.onGroupCallInitiated(handleGroupCallInitiated);
+
+    // Set up listener for incoming group calls to join
+    const handleGroupCallIncoming = ({ callId }: { callId: string; chatId: string; callType: string; initiator: any; participants: any[] }) => {
+      setGroupCallId(callId);
+      setShowGroupCallModal(true);
+      socketService.offGroupCallIncoming(handleGroupCallIncoming);
+    };
+
+    socketService.onGroupCallIncoming(handleGroupCallIncoming);
+  };
+
+  const handleCloseGroupCall = () => {
+    setShowGroupCallModal(false);
+    setGroupCallId(null);
   };
 
   const {

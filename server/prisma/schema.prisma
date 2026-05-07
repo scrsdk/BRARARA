@@ -188,6 +188,8 @@ model Message {
   @@index([mentions])
   @@index([hashtags])
   @@index([stickerId])
+  @@index([content])
+  @@index([fileName])
 }
 
 model Call {
@@ -841,4 +843,15 @@ model TelegramBotMessage {
   @@index([telegramBotId])
   @@index([telegramChatId])
   @@index([telegramUserId])
+}
+
+model SearchHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  query     String
+  filters   String?  // JSON string of applied filters
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([userId])
 }
