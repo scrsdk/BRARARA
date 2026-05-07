@@ -12,8 +12,11 @@ interface MessageListViewportProps {
   currentChatType: ChatType;
   typingUsers: TypingUsersMap;
   messagesEndRef: Ref<HTMLDivElement>;
+  selectedMessages?: Set<string>;
+  isSelectionMode?: boolean;
   onMessageContextMenu: (event: MouseEvent<HTMLDivElement>, messageId: string) => void;
   onExpireMessage: (messageId: string) => void;
+  onSelectMessage?: (messageId: string) => void;
 }
 
 const INITIAL_RENDER_COUNT = 120;
@@ -27,8 +30,11 @@ export function MessageListViewport({
   currentChatType,
   typingUsers,
   messagesEndRef,
+  selectedMessages = new Set(),
+  isSelectionMode = false,
   onMessageContextMenu,
   onExpireMessage,
+  onSelectMessage,
 }: MessageListViewportProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [visibleStartIndex, setVisibleStartIndex] = useState(() =>
@@ -155,8 +161,11 @@ export function MessageListViewport({
           message={message}
           isOwn={!message.botId && message.senderId === currentUserId}
           currentChatType={currentChatType}
+          isSelected={selectedMessages.has(message.id)}
+          isSelectionMode={isSelectionMode}
           onMessageContextMenu={onMessageContextMenu}
           onExpireMessage={onExpireMessage}
+          onSelect={onSelectMessage}
         />
       ))}
 

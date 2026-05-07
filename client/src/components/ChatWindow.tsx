@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react';
+import { lazy, Suspense, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { messageApi } from '../services/api';
 import { socketService } from '../services/socket';
@@ -12,6 +12,7 @@ import { ChatWindowHeader } from './chat-window/ChatWindowHeader';
 import { MessageComposer } from './chat-window/MessageComposer';
 import { MessageContextMenu } from './chat-window/MessageContextMenu';
 import { MessageListViewport } from './chat-window/MessageListViewport';
+import { SelectionModeBar } from './chat-window/SelectionModeBar';
 import { useChatComposer } from './chat-window/useChatComposer';
 import { useChatWindowData } from './chat-window/useChatWindowData';
 import { useChatWindowRealtime } from './chat-window/useChatWindowRealtime';
@@ -131,6 +132,15 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     handleMessageContextMenu,
     handleForwardMessage,
     handleSearchSelect,
+    // Selection mode
+    selectedMessages,
+    isSelectionMode,
+    selectedCount,
+    enterSelectionMode,
+    exitSelectionMode,
+    toggleMessageSelection,
+    handleForwardSelected,
+    handleDeleteSelected,
   } = useChatWindowUiState({
     chatId,
   });
@@ -139,6 +149,45 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     if (message.content) {
       await navigator.clipboard.writeText(message.content);
     }
+    setContextMenu(null);
+  };
+
+  const handleCopyLink = async (message: Message) => {
+    const link = `${window.location.origin}/chat/${chatId}?message=${message.id}`;
+    await navigator.clipboard.writeText(link);
+    toast.success('Ссылка скопирована');
+    setContextMenu(null);
+  };
+
+  const handleSaveMedia = async (message: Message) => {
+    if (!message.fileUrl) return;
+    
+    try {
+      const response = await fetch(message.fileUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = message.fileName || 'media';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success('Медиа сохранено');
+    } catch (error) {
+      toast.error('Не удалось сохранить медиа');
+    }
+    setContextMenu(null);
+  };
+
+  const handleReply = (message: Message) => {
+    setMessageInput(message.content || '');
+    setContextMenu(null);
+    // TODO: Set reply context if needed
+  };
+
+  const handleSelect = (messageId: string) => {
+    enterSelectionMode(messageId);
     setContextMenu(null);
   };
 
@@ -168,6 +217,26 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
     setContextMenu(null);
   };
 
+  const handleBulkDelete = useCallback(async (messageIds: string[]) => {
+    const shouldDelete = await confirm({
+      title: 'Удалить сообщения',
+      message: `${messageIds.length} сообщений будет удалено из чата.`,
+      confirmText: 'Удалить',
+      tone: 'danger',
+    });
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    try {
+      await Promise.all(messageIds.map(id => messageApi.delete(id)));
+      toast.success(`Удалено ${messageIds.length} сообщений`);
+    } catch (error) {
+      console.error('Failed to delete messages:', error);
+    }
+  }, []);
+
   if (!currentChat) {
     return (
       <div className="telegram-wallpaper flex h-full items-center justify-center">
@@ -188,8 +257,17 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
         ? `${currentChat.members.length} участников`
         : 'канал';
 
+  const isPinned = contextMenu?.messageId === currentChat.pinnedMessageId;
+
   return (
     <div className="flex h-full bg-transparent">
+      <SelectionModeBar
+        selectedCount={selectedCount}
+        onForward={handleForwardSelected}
+        onDelete={() => handleDeleteSelected(handleBulkDelete)}
+        onCancel={exitSelectionMode}
+      />
+
       <div className="flex min-w-0 flex-1 flex-col bg-[linear-gradient(180deg,rgba(11,20,31,0.76),rgba(10,17,28,0.92))]">
         <ChatWindowHeader
           chatName={chatName}
@@ -220,8 +298,11 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
           currentChatType={currentChat.type}
           typingUsers={typingUsers}
           messagesEndRef={messagesEndRef}
+          selectedMessages={selectedMessages}
+          isSelectionMode={isSelectionMode}
           onMessageContextMenu={handleMessageContextMenu}
           onExpireMessage={deleteMessageFromStore}
+          onSelectMessage={toggleMessageSelection}
         />
 
         <MessageComposer
@@ -250,13 +331,19 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
           contextMenu={contextMenu}
           message={messages.find((message) => message.id === contextMenu.messageId)}
           isAdmin={isAdmin}
+          isPinned={isPinned}
           currentUserId={user?.id}
           onClose={() => setContextMenu(null)}
+          onReply={handleReply}
+          onSelect={handleSelect}
           onCopyMessage={handleCopyMessage}
           onForwardMessage={handleForwardMessage}
           onPinMessage={handlePinMessage}
+          onUnpinMessage={handleUnpinMessage}
           onEditMessage={handleEditMessage}
           onDeleteMessage={handleDeleteMessage}
+          onCopyLink={handleCopyLink}
+          onSaveMedia={handleSaveMedia}
         />
       )}
 

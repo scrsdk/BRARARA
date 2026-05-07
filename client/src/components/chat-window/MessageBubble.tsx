@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { Forward } from 'lucide-react';
+import { Forward, Check } from 'lucide-react';
 import LinkPreview from '../LinkPreview';
 import MessageStatus from '../MessageStatus';
 import SelfDestructTimer from '../SelfDestructTimer';
@@ -12,16 +12,22 @@ interface MessageBubbleProps {
   message: Message;
   isOwn: boolean;
   currentChatType: ChatType;
+  isSelected?: boolean;
+  isSelectionMode?: boolean;
   onMessageContextMenu: (event: React.MouseEvent<HTMLDivElement>, messageId: string) => void;
   onExpireMessage: (messageId: string) => void;
+  onSelect?: (messageId: string) => void;
 }
 
 function MessageBubbleComponent({
   message,
   isOwn,
   currentChatType,
+  isSelected = false,
+  isSelectionMode = false,
   onMessageContextMenu,
   onExpireMessage,
+  onSelect,
 }: MessageBubbleProps) {
   const isReadByRecipient = Boolean(
     message.readBy?.some((readerId) => readerId !== message.senderId) ||
@@ -36,14 +42,36 @@ function MessageBubbleComponent({
           ? 'delivered'
           : 'sent';
 
+  const handleClick = () => {
+    if (isSelectionMode && onSelect) {
+      onSelect(message.id);
+    }
+  };
+
   return (
     <div
       id={`message-${message.id}`}
       className={`mb-1.5 flex transition ${isOwn ? 'justify-end' : 'justify-start'}`}
       onContextMenu={(event) => onMessageContextMenu(event, message.id)}
+      onClick={handleClick}
     >
+      {isSelectionMode && (
+        <div className="flex items-center">
+          <div
+            className={`mr-2 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-colors ${
+              isSelected
+                ? 'border-[#008069] bg-[#008069]'
+                : 'border-white/40 bg-transparent'
+            }`}
+          >
+            {isSelected && <Check className="h-3.5 w-3.5 text-white" />}
+          </div>
+        </div>
+      )}
       <div
-        className={`max-w-[78%] border px-3.5 py-2.5 shadow-[0_12px_30px_rgba(6,12,20,0.18)] xl:max-w-[58%] ${
+        className={`max-w-[78%] border px-3.5 py-2.5 shadow-[0_12px_30px_rgba(6,12,20,0.18)] transition-all xl:max-w-[58%] ${
+          isSelected && isSelectionMode ? 'ring-2 ring-[#008069] ring-offset-1 ring-offset-transparent' : ''
+        } ${
           isOwn
             ? 'border-[#6fe0b2]/20 text-[#10211b] dark:text-[#e9edef]'
             : 'border-white/10 text-[#111b21] dark:text-[#e9edef]'
@@ -104,8 +132,11 @@ function areEqual(prev: MessageBubbleProps, next: MessageBubbleProps) {
     prev.message === next.message &&
     prev.isOwn === next.isOwn &&
     prev.currentChatType === next.currentChatType &&
+    prev.isSelected === next.isSelected &&
+    prev.isSelectionMode === next.isSelectionMode &&
     prev.onMessageContextMenu === next.onMessageContextMenu &&
-    prev.onExpireMessage === next.onExpireMessage
+    prev.onExpireMessage === next.onExpireMessage &&
+    prev.onSelect === next.onSelect
   );
 }
 

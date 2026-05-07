@@ -30,6 +30,18 @@ const ru = {
       pin: 'Закрепить',
       edit: 'Редактировать',
       delete: 'Удалить',
+      reply: 'Ответить',
+      select: 'Выбрать',
+      copyLink: 'Копировать ссылку',
+      saveMedia: 'Сохранить медиа',
+      unpin: 'Открепить',
+    },
+    selection: {
+      title: 'Выбрано',
+      messages: 'сообщений',
+      delete: 'Удалить',
+      forward: 'Переслать',
+      cancel: 'Отмена',
     },
     status: {
       pending: 'Отправляется',
