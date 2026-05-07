@@ -134,6 +134,14 @@
 │   ├── GET /channels
 │   └── POST /sync
 │
+├── /search
+│   ├── GET /messages?query=&type=&dateFrom=&dateTo=&senderId=&chatId=
+│   ├── GET /hashtag/:hashtag
+│   ├── GET /mentions/:username?
+│   ├── GET /history
+│   ├── DELETE /history
+│   └── DELETE /history/:historyId
+│
 ├── /webhooks
 │   ├── GET /
 │   ├── POST /
@@ -573,6 +581,13 @@ AuditLogs
 ├── action
 ├── resource
 └── timestamp
+
+SearchHistory
+├── id (UUID)
+├── userId (FK)
+├── query
+├── filters (JSON)
+└── createdAt
 ```
 
 ---
