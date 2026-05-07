@@ -150,25 +150,82 @@
 
 ## 🔌 WebSocket Events
 
+### Standard Events
 ```
 CLIENT → SERVER
 ├── user:login
 ├── message:send
-├── typing:start
-├── typing:stop
-├── chat:create
-├── chat:update
-├── user:status
+├── message:typing
+├── message:read
+├── chat:pin-message
+├── chat:unpin-message
 └── reaction:add
 
 SERVER → CLIENT
 ├── message:new
+├── message:update
+├── message:delete
+├── message:read
 ├── typing:active
 ├── user:online
 ├── user:offline
+├── user:status
 ├── chat:updated
+├── chat:pin-updated
 ├── notification:push
 └── reaction:new
+```
+
+### Call Events (1-on-1)
+```
+CLIENT → SERVER
+├── call:initiate
+├── call:answer
+├── call:reject
+├── call:end
+├── call:toggle-recording
+├── call:save-recording
+├── webrtc:offer
+├── webrtc:answer
+└── webrtc:ice-candidate
+
+SERVER → CLIENT
+├── call:incoming
+├── call:initiated
+├── call:answered
+├── call:rejected
+├── call:ended
+├── call:missed
+├── call:recording-status
+└── webrtc:offer/answer/ice-candidate
+```
+
+### Group Call Events
+```
+CLIENT → SERVER
+├── call:group:initiate
+├── call:group:join
+├── call:group:leave
+├── call:group:end
+├── call:group:invite
+├── call:group:participants
+├── call:group:webrtc:offer
+├── call:group:webrtc:answer
+├── call:group:webrtc:ice-candidate
+└── call:group:webrtc:relay
+
+SERVER → CLIENT
+├── call:group:incoming
+├── call:group:initiated
+├── call:group:joined
+├── call:group:left
+├── call:group:ended
+├── call:group:participant:joined
+├── call:group:participant:left
+├── call:group:invite
+├── call:group:invited
+├── call:group:participants:list
+└── call:group:webrtc:offer/answer/ice-candidate
 ```
 
 ---
@@ -549,23 +606,37 @@ AuditLogs
 
 ## 📈 Performance Optimization
 
-1. **Caching Layers**
-   - Redis cache for user sessions
-   - Browser caching for static assets
-   - API response caching
+### Implemented Optimizations
 
-2. **Database Optimization**
-   - Indexed queries
-   - Connection pooling
-   - Query optimization
+1. **API Response Caching (Redis)**
+   - Chat lists: 30s TTL
+   - Individual chat: 60s TTL
+   - Messages: 30s TTL
+   - User profiles: 60s TTL
+   - Current user: 30s TTL
+   - Contacts: 120s TTL
+   - Cache invalidation on data mutations
 
-3. **Frontend Optimization**
+2. **Database Query Optimization**
+   - Batch fetching for last messages (avoids N+1)
+   - Batch fetching for pinned messages
+   - Selective field loading with `select` instead of nested `include`
+   - Cursor-based pagination for messages
+   - Offset-based pagination for chat lists
+
+3. **ETag/Last-Modified Headers**
+   - Media responses include ETag based on file size+mtime
+   - Conditional requests (304 Not Modified)
+   - Last-Modified fallback for browsers
+   - Vary: Accept-Encoding header
+
+4. **Frontend Optimization**
    - Code splitting (Vite)
    - Lazy loading components
    - Image compression
    - Service Worker caching
 
-4. **Backend Optimization**
+5. **Backend Optimization**
    - Middleware optimization
    - Async/await for I/O
    - Request batching
