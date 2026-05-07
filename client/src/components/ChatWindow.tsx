@@ -314,13 +314,15 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
           chatAvatar={chatAvatar}
           chatSubtitle={chatSubtitle}
           canStartCall={canStartCall}
+          canStartGroupCall={currentChat?.type !== ChatType.PRIVATE}
           hasPinnedMessage={Boolean(currentChat.pinnedMessageId)}
           onBack={onBack}
           onOpenProfile={() => setShowChatProfile(true)}
           onUnpinMessage={handleUnpinMessage}
           onOpenSearch={() => setShowSearch(true)}
-          onStartAudioCall={() => handleStartCall('AUDIO')}
-          onStartVideoCall={() => handleStartCall('VIDEO')}
+          onStartAudioCall={() => handleStartGroupCall('AUDIO')}
+          onStartVideoCall={() => handleStartGroupCall('VIDEO')}
+          onStartGroupCall={() => handleStartGroupCall('VIDEO')}
           onOpenSettings={() => setShowChatSettings(true)}
           getInitials={getInitials}
         />
@@ -421,6 +423,15 @@ export default function ChatWindow({ chatId, onBack }: ChatWindowProps) {
               setShowCallModal(false);
               setActiveCallId(null);
             }}
+          />
+        )}
+
+        {showGroupCallModal && groupCallId && (
+          <GroupCallModal
+            callId={groupCallId}
+            chatId={chatId}
+            callType={callType}
+            onClose={handleCloseGroupCall}
           />
         )}
 
