@@ -7,9 +7,9 @@ interface MarkdownTextProps {
 
 export function MarkdownText({ content, className = '' }: MarkdownTextProps) {
   return (
-    <ReactMarkdown
-      className={`markdown-content ${className}`}
-      components={{
+    <div className={`markdown-content ${className}`}>
+      <ReactMarkdown
+        components={{
         strong: ({ children }) => (
           <strong className="font-semibold">{children}</strong>
         ),
@@ -70,6 +70,7 @@ export function MarkdownText({ content, className = '' }: MarkdownTextProps) {
       }}
     >
       {content}
-    </ReactMarkdown>
+      </ReactMarkdown>
+    </div>
   );
 }
