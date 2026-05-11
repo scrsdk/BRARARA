@@ -43,6 +43,18 @@ const ru = {
       forward: 'Переслать',
       cancel: 'Отмена',
     },
+    formatting: {
+      bold: 'Жирный',
+      italic: 'Курсив',
+      code: 'Код',
+      link: 'Ссылка',
+      list: 'Список',
+    },
+    editing: {
+      title: 'Редактирование',
+      cancel: 'Отмена',
+      save: 'Сохранить',
+    },
     status: {
       pending: 'Отправляется',
       sent: 'Отправлено',

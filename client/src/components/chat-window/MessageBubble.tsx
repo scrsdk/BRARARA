@@ -3,6 +3,7 @@ import { Forward, Check } from 'lucide-react';
 import LinkPreview from '../LinkPreview';
 import MessageStatus from '../MessageStatus';
 import SelfDestructTimer from '../SelfDestructTimer';
+import { MarkdownText } from '../MarkdownText';
 import { formatMessageTime } from '../../utils/helpers';
 import { ChatType, Message } from '../../types';
 import { MessageAttachment } from './MessageAttachment';
@@ -101,7 +102,11 @@ function MessageBubbleComponent({
 
         <MessageAttachment message={message} />
 
-        {message.content && <p className="break-words text-[15px] leading-[1.45]">{message.content}</p>}
+        {message.content && (
+          <div className="break-words text-[15px] leading-[1.45]">
+            <MarkdownText content={message.content} />
+          </div>
+        )}
 
         {message.linkPreview && typeof message.linkPreview === 'object' && (
           <div className="mt-2">
