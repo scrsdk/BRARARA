@@ -3,6 +3,9 @@
   "version": "2.0.0",
   "description": "Modern PWA Messenger with E2E encryption, advanced bots, analytics, and enhanced security",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "workspaces": [
     "client",
     "server"
